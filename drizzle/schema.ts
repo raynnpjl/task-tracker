@@ -1,7 +1,21 @@
-import { pgTable, serial, text, boolean, timestamp, integer, varchar, foreignKey, uniqueIndex } from "drizzle-orm/pg-core"
+import { pgTable, uniqueIndex, integer, varchar, text, boolean, serial, timestamp, foreignKey } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 
 
+
+export const users = pgTable("users", {
+	id: integer().primaryKey().generatedAlwaysAsIdentity({ name: "users_id_seq", startWith: 1, increment: 1, minValue: 1, maxValue: 2147483647, cache: 1 }),
+	username: varchar({ length: 255 }).notNull(),
+	firstName: varchar("first_name", { length: 255 }).notNull(),
+	lastName: varchar("last_name", { length: 255 }).notNull(),
+	email: varchar({ length: 255 }).notNull(),
+	firebaseUid: text("firebase_uid").notNull(),
+	emailVerified: boolean("email_verified").default(false).notNull(),
+}, (table) => [
+	uniqueIndex("users_email_unique").using("btree", table.email.asc().nullsLast().op("text_ops")),
+	uniqueIndex("users_firebase_uid_unique").using("btree", table.firebaseUid.asc().nullsLast().op("text_ops")),
+	uniqueIndex("users_username_unique").using("btree", table.username.asc().nullsLast().op("text_ops")),
+]);
 
 export const tasks = pgTable("tasks", {
 	id: serial().primaryKey().notNull(),
@@ -9,23 +23,6 @@ export const tasks = pgTable("tasks", {
 	done: boolean().default(false).notNull(),
 	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
 });
-
-export const users = pgTable(
-  "users",
-  {
-    id: integer().primaryKey().generatedAlwaysAsIdentity(),
-    username: varchar({ length: 255 }).notNull(),
-    firstName: varchar("first_name", { length: 255 }).notNull(),
-    lastName: varchar("last_name", { length: 255 }).notNull(),
-    email: varchar({ length: 255 }).notNull(),
-    firebaseUid: text("firebase_uid").notNull(),
-  },
-  (table) => [
-    uniqueIndex("users_email_unique").on(table.email),
-    uniqueIndex("users_firebase_uid_unique").on(table.firebaseUid),
-    uniqueIndex("users_username_unique").on(table.username),
-  ]
-);
 
 export const projects = pgTable("projects", {
 	id: integer().primaryKey().generatedAlwaysAsIdentity({ name: "projects_id_seq", startWith: 1, increment: 1, minValue: 1, maxValue: 2147483647, cache: 1 }),

@@ -37,11 +37,12 @@ export default function RegisterPage() {
     setIsLoading(true);
 
     try {
-      const success = await register(email, password, firstName, lastName, username);
-      if (success) {
-        router.push('/dashboard');
+      const result = await register(email, password, firstName, lastName, username);
+
+      if (result.success) {
+        router.push('/login?verifyEmail=1');
       } else {
-        setError('An account with this email already exists');
+        setError(result.message);
       }
     } catch {
       setError('Something went wrong. Please try again.');
