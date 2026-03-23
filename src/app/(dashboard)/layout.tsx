@@ -8,36 +8,7 @@ import { Sidebar } from '@/components/dashboard/sidebar';
 import { Loader2 } from 'lucide-react';
 
 function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
-  const { isAuthenticated, user } = useAuth();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    // Small delay to allow localStorage to be read
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 100);
-    return () => clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      router.push('/login');
-    }
-  }, [isAuthenticated, isLoading, router]);
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  if (!isAuthenticated || !user) {
-    return null;
-  }
 
   return (
     <ProjectProvider>
@@ -59,20 +30,33 @@ export default function DashboardLayout({
 }) {
   const router = useRouter();
   const { user, loading } = useAuth();
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    if (!loading && !user) {
+    const timer = setTimeout(() => {
+      setIsReady(true);
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    if (isReady && !loading && !user) {
       router.replace('/login');
     }
-  }, [loading, user, router]);
+  }, [isReady, loading, user, router]);
 
-  if (loading) {
-    return <div className="p-6">Loading...</div>;
+  if (!isReady || loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
   }
 
   if (!user) {
     return null;
   }
 
-  return <>{children}</>;
+  return <DashboardLayoutContent>{children}</DashboardLayoutContent>;
 }
