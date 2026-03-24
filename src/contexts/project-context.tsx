@@ -1,287 +1,447 @@
-
 'use client';
 
-import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
-import type { Project, QuickNote, Label, Task, LabelColor } from '@/types';
-import { useAuth } from './auth-context'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
+import { useAuth } from '@/contexts/auth-context';
+import type { Project, Label, Task, QuickNote, LabelColor } from '@/types';
 
 interface ProjectContextType {
   projects: Project[];
   currentProject: Project | null;
-  quickNotes: QuickNote[];
   labels: Label[];
   tasks: Task[];
+  quickNotes: QuickNote[];
   setCurrentProject: (project: Project | null) => void;
-  createProject: (name: string, icon: string) => void;
-  deleteProject: (projectId: string) => void;
-  renameProject: (projectId: string, newName: string) => void;
-  addQuickNote: (content: string) => void;
-  updateQuickNote: (noteId: string, content: string) => void;
-  deleteQuickNote: (noteId: string) => void;
-  addLabel: (name: string, color: LabelColor) => void;
-  updateLabel: (labelId: string, name: string, color: LabelColor) => void;
-  deleteLabel: (labelId: string) => void;
-  addTask: (content: string, labelId: string) => void;
-  updateTask: (taskId: string, content: string) => void;
-  deleteTask: (taskId: string) => void;
-  moveTask: (taskId: string, newLabelId: string, newOrder: number) => void;
-  reorderLabels: (labelId: string, newOrder: number) => void;
+  refreshProjects: () => Promise<void>;
+  refreshBoard: (projectId?: number) => Promise<void>;
+  createProject: (name: string) => Promise<Project | null>;
+  renameProject: (projectId: number, name: string) => Promise<void>;
+  deleteProject: (projectId: number) => Promise<void>;
+  addLabel: (name: string, color: LabelColor) => Promise<void>;
+  updateLabel: (labelId: number, name: string, color: LabelColor) => Promise<void>;
+  deleteLabel: (labelId: number) => Promise<void>;
+  addTask: (title: string, labelId: number) => Promise<void>;
+  updateTask: (
+    taskId: number,
+    updates: Partial<Pick<Task, 'title' | 'done'>>
+  ) => Promise<void>;
+  moveTask: (taskId: number, labelId: number, position: number) => Promise<void>;
+  deleteTask: (taskId: number) => Promise<void>;
+  addQuickNote: (content: string) => Promise<void>;
+  updateQuickNote: (noteId: number, content: string) => Promise<void>;
+  deleteQuickNote: (noteId: number) => Promise<void>;
 }
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
 
-const STORAGE_KEY = 'taskflow_data';
-
-interface StorageData {
-  projects: Project[];
-  quickNotes: QuickNote[];
-  labels: Label[];
-  tasks: Task[];
-}
-
-function getStorageData(): StorageData {
-  if (typeof window === 'undefined') {
-    return { projects: [], quickNotes: [], labels: [], tasks: [] };
-  }
-  const data = localStorage.getItem(STORAGE_KEY);
-  return data
-    ? JSON.parse(data)
-    : { projects: [], quickNotes: [], labels: [], tasks: [] };
-}
-
-function saveStorageData(data: StorageData) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-}
-
-export function ProjectProvider({ children }: { children: ReactNode }) {
+export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
+
   const [projects, setProjects] = useState<Project[]>([]);
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
-  const [quickNotes, setQuickNotes] = useState<QuickNote[]>([]);
   const [labels, setLabels] = useState<Label[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [quickNotes, setQuickNotes] = useState<QuickNote[]>([]);
 
-  // Load data on mount
-  useEffect(() => {
-    const data = getStorageData();
-    setProjects(data.projects);
-    setQuickNotes(data.quickNotes);
-    setLabels(data.labels);
-    setTasks(data.tasks);
-  }, []);
+  const userHeaders = useCallback(() => {
+    if (!user?.uid) throw new Error('User not found');
 
-  // Filter data by user
-  const userProjects = projects.filter((p) => p.userId === user?.uid);
-  const projectQuickNotes = quickNotes.filter(
-    (n) => n.projectId === currentProject?.id
+    return {
+      'Content-Type': 'application/json',
+      'x-firebase-uid': user.uid,
+    };
+  }, [user?.uid]);
+
+  const authHeaders = useCallback(() => {
+    if (!user?.uid) throw new Error('User not found');
+
+    return {
+      'x-firebase-uid': user.uid,
+    };
+  }, [user?.uid]);
+
+  const refreshProjects = useCallback(async () => {
+    if (!user?.uid) {
+      setProjects([]);
+      setCurrentProject(null);
+      setLabels([]);
+      setTasks([]);
+      setQuickNotes([]);
+      return;
+    }
+
+    const res = await fetch('/api/projects', {
+      headers: authHeaders(),
+      cache: 'no-store',
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to fetch projects');
+
+    const nextProjects = data.projects ?? [];
+    setProjects(nextProjects);
+
+    setCurrentProject((prev) => {
+      if (!prev) return nextProjects[0] ?? null;
+      return nextProjects.find((p: Project) => p.id === prev.id) ?? nextProjects[0] ?? null;
+    });
+  }, [user?.uid, authHeaders]);
+
+  const refreshBoard = useCallback(
+    async (projectId?: number) => {
+      const targetProjectId = projectId ?? currentProject?.id;
+
+      if (!user?.uid || !targetProjectId) {
+        setLabels([]);
+        setTasks([]);
+        setQuickNotes([]);
+        return;
+      }
+
+      const res = await fetch(`/api/projects/${targetProjectId}/board`, {
+        headers: authHeaders(),
+        cache: 'no-store',
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to fetch board');
+
+      setLabels(data.labels ?? []);
+      setTasks(data.tasks ?? []);
+      setQuickNotes(data.quickNotes ?? []);
+    },
+    [user?.uid, currentProject?.id, authHeaders]
   );
-  const projectLabels = labels
-    .filter((l) => l.projectId === currentProject?.id)
-    .sort((a, b) => a.order - b.order);
-  const projectTasks = tasks.filter((t) => t.projectId === currentProject?.id);
-
-  // Save data whenever it changes
-  useEffect(() => {
-    saveStorageData({ projects, quickNotes, labels, tasks });
-  }, [projects, quickNotes, labels, tasks]);
 
   const createProject = useCallback(
-    (name: string, icon: string) => {
-      if (!user) return;
-      const newProject: Project = {
-        id: crypto.randomUUID(),
-        name,
-        icon,
-        createdAt: new Date(),
-        userId: user.uid,
-      };
-      setProjects((prev) => [...prev, newProject]);
-      setCurrentProject(newProject);
+    async (name: string) => {
+      const res = await fetch('/api/projects', {
+        method: 'POST',
+        headers: userHeaders(),
+        body: JSON.stringify({ name }),
+      });
 
-      // Create default labels for new project
-      const defaultLabels: Label[] = [
-        { id: crypto.randomUUID(), name: 'To-Do', color: 'blue', projectId: newProject.id, order: 0 },
-        { id: crypto.randomUUID(), name: 'In Progress', color: 'orange', projectId: newProject.id, order: 1 },
-        { id: crypto.randomUUID(), name: 'Review', color: 'purple', projectId: newProject.id, order: 2 },
-        { id: crypto.randomUUID(), name: 'Completed', color: 'green', projectId: newProject.id, order: 3 },
-      ];
-      setLabels((prev) => [...prev, ...defaultLabels]);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to create project');
+
+      const project = data.project as Project;
+      setProjects((prev) => [project, ...prev]);
+      setCurrentProject(project);
+      setLabels([]);
+      setTasks([]);
+      setQuickNotes([]);
+
+      return project;
     },
-    [user]
+    [userHeaders]
   );
 
-  const deleteProject = useCallback((projectId: string) => {
-    setProjects((prev) => prev.filter((p) => p.id !== projectId));
-    setQuickNotes((prev) => prev.filter((n) => n.projectId !== projectId));
-    setLabels((prev) => prev.filter((l) => l.projectId !== projectId));
-    setTasks((prev) => prev.filter((t) => t.projectId !== projectId));
-    setCurrentProject((prev) => (prev?.id === projectId ? null : prev));
-  }, []);
+  const renameProject = useCallback(
+    async (projectId: number, name: string) => {
+      const res = await fetch(`/api/projects/${projectId}`, {
+        method: 'PATCH',
+        headers: userHeaders(),
+        body: JSON.stringify({ name }),
+      });
 
-  const renameProject = useCallback((projectId: string, newName: string) => {
-    setProjects((prev) =>
-      prev.map((p) => (p.id === projectId ? { ...p, name: newName } : p))
-    );
-    setCurrentProject((prev) =>
-      prev?.id === projectId ? { ...prev, name: newName } : prev
-    );
-  }, []);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to rename project');
 
-  const addQuickNote = useCallback(
-    (content: string) => {
-      if (!currentProject) return;
-      const newNote: QuickNote = {
-        id: crypto.randomUUID(),
-        content,
-        createdAt: new Date(),
-        projectId: currentProject.id,
-      };
-      setQuickNotes((prev) => [...prev, newNote]);
+      const updated = data.project as Project;
+      setProjects((prev) => prev.map((p) => (p.id === projectId ? updated : p)));
+      setCurrentProject((prev) => (prev?.id === projectId ? updated : prev));
     },
-    [currentProject]
+    [userHeaders]
   );
 
-  const updateQuickNote = useCallback((noteId: string, content: string) => {
-    setQuickNotes((prev) =>
-      prev.map((n) => (n.id === noteId ? { ...n, content } : n))
-    );
-  }, []);
+  const deleteProject = useCallback(
+    async (projectId: number) => {
+      const res = await fetch(`/api/projects/${projectId}`, {
+        method: 'DELETE',
+        headers: authHeaders(),
+      });
 
-  const deleteQuickNote = useCallback((noteId: string) => {
-    setQuickNotes((prev) => prev.filter((n) => n.id !== noteId));
-  }, []);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to delete project');
+
+      setProjects((prev) => {
+        const next = prev.filter((p) => p.id !== projectId);
+        const nextCurrent = currentProject?.id === projectId ? next[0] ?? null : currentProject;
+        setCurrentProject(nextCurrent);
+
+        if (!nextCurrent) {
+          setLabels([]);
+          setTasks([]);
+          setQuickNotes([]);
+        }
+
+        return next;
+      });
+    },
+    [currentProject, authHeaders]
+  );
 
   const addLabel = useCallback(
-    (name: string, color: LabelColor) => {
+    async (name: string, color: LabelColor) => {
       if (!currentProject) return;
-      const maxOrder = Math.max(
-        0,
-        ...labels.filter((l) => l.projectId === currentProject.id).map((l) => l.order)
-      );
-      const newLabel: Label = {
-        id: crypto.randomUUID(),
-        name,
-        color,
-        projectId: currentProject.id,
-        order: maxOrder + 1,
-      };
-      setLabels((prev) => [...prev, newLabel]);
+
+      const res = await fetch('/api/labels', {
+        method: 'POST',
+        headers: userHeaders(),
+        body: JSON.stringify({
+          name,
+          color,
+          projectId: currentProject.id,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to create label');
+
+      setLabels((prev) => [...prev, data.label]);
     },
-    [currentProject, labels]
+    [currentProject, userHeaders]
   );
 
-  const updateLabel = useCallback((labelId: string, name: string, color: LabelColor) => {
-    setLabels((prev) =>
-      prev.map((l) => (l.id === labelId ? { ...l, name, color } : l))
-    );
-  }, []);
+  const updateLabel = useCallback(
+    async (labelId: number, name: string, color: LabelColor) => {
+      const res = await fetch(`/api/labels/${labelId}`, {
+        method: 'PATCH',
+        headers: userHeaders(),
+        body: JSON.stringify({ name, color }),
+      });
 
-  const deleteLabel = useCallback((labelId: string) => {
-    setLabels((prev) => prev.filter((l) => l.id !== labelId));
-    setTasks((prev) => prev.filter((t) => t.labelId !== labelId));
-  }, []);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to update label');
+
+      const updatedLabel: Label = data.label;
+      setLabels((prev) =>
+        prev.map((label) => (label.id === labelId ? updatedLabel : label))
+      );
+    },
+    [userHeaders]
+  );
+
+  const deleteLabel = useCallback(
+    async (labelId: number) => {
+      const res = await fetch(`/api/labels/${labelId}`, {
+        method: 'DELETE',
+        headers: authHeaders(),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to delete label');
+
+      setLabels((prev) => prev.filter((label) => label.id !== labelId));
+      setTasks((prev) => prev.filter((task) => task.labelId !== labelId));
+    },
+    [authHeaders]
+  );
 
   const addTask = useCallback(
-    (content: string, labelId: string) => {
+    async (title: string, labelId: number) => {
       if (!currentProject) return;
-      const labelTasks = tasks.filter((t) => t.labelId === labelId);
-      const maxOrder = Math.max(0, ...labelTasks.map((t) => t.order));
-      const newTask: Task = {
-        id: crypto.randomUUID(),
-        content,
-        labelId,
-        projectId: currentProject.id,
-        createdAt: new Date(),
-        order: maxOrder + 1,
-      };
-      setTasks((prev) => [...prev, newTask]);
+
+      const res = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: userHeaders(),
+        body: JSON.stringify({
+          title,
+          projectId: currentProject.id,
+          labelId,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to create task');
+
+      setTasks((prev) => [...prev, data.task]);
     },
-    [currentProject, tasks]
+    [currentProject, userHeaders]
   );
 
-  const updateTask = useCallback((taskId: string, content: string) => {
-    setTasks((prev) =>
-      prev.map((t) => (t.id === taskId ? { ...t, content } : t))
-    );
-  }, []);
+  const updateTask = useCallback(
+    async (taskId: number, updates: Partial<Pick<Task, 'title' | 'done'>>) => {
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: userHeaders(),
+        body: JSON.stringify(updates),
+      });
 
-  const deleteTask = useCallback((taskId: string) => {
-    setTasks((prev) => prev.filter((t) => t.id !== taskId));
-  }, []);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to update task');
 
-  const moveTask = useCallback((taskId: string, newLabelId: string, newOrder: number) => {
-    setTasks((prev) => {
-      const task = prev.find((t) => t.id === taskId);
-      if (!task) return prev;
+      const updated = data.task as Task;
+      setTasks((prev) => prev.map((t) => (t.id === taskId ? updated : t)));
+    },
+    [userHeaders]
+  );
 
-      // Get tasks in the target label
-      const targetLabelTasks = prev
-        .filter((t) => t.labelId === newLabelId && t.id !== taskId)
-        .sort((a, b) => a.order - b.order);
+  const moveTask = useCallback(
+    async (taskId: number, labelId: number, position: number) => {
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: userHeaders(),
+        body: JSON.stringify({ labelId, position }),
+      });
 
-      // Insert at the new position
-      targetLabelTasks.splice(newOrder, 0, { ...task, labelId: newLabelId });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to move task');
 
-      // Update orders
-      const updatedTargetTasks = targetLabelTasks.map((t, index) => ({
-        ...t,
-        order: index,
-      }));
+      const updated = data.task as Task;
 
-      // Return updated tasks
-      return prev
-        .filter((t) => t.labelId !== newLabelId && t.id !== taskId)
-        .concat(updatedTargetTasks);
-    });
-  }, []);
+      setTasks((prev) => {
+        const withoutCurrent = prev.filter((t) => t.id !== taskId);
+        const next = withoutCurrent.map((t) => {
+          if (t.labelId === labelId && t.position >= position) {
+            return { ...t, position: t.position + 1 };
+          }
+          return t;
+        });
 
-  const reorderLabels = useCallback((labelId: string, newOrder: number) => {
-    setLabels((prev) => {
-      const label = prev.find((l) => l.id === labelId);
-      if (!label || !currentProject) return prev;
+        return [...next, updated].sort((a, b) => {
+          if (a.labelId !== b.labelId) return a.labelId - b.labelId;
+          return a.position - b.position;
+        });
+      });
+    },
+    [userHeaders]
+  );
 
-      const projectLabelsArr = prev
-        .filter((l) => l.projectId === currentProject.id && l.id !== labelId)
-        .sort((a, b) => a.order - b.order);
+  const deleteTask = useCallback(
+    async (taskId: number) => {
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        method: 'DELETE',
+        headers: authHeaders(),
+      });
 
-      projectLabelsArr.splice(newOrder, 0, label);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to delete task');
 
-      const updatedProjectLabels = projectLabelsArr.map((l, index) => ({
-        ...l,
-        order: index,
-      }));
+      setTasks((prev) => prev.filter((t) => t.id !== taskId));
+    },
+    [authHeaders]
+  );
 
-      return prev
-        .filter((l) => l.projectId !== currentProject.id)
-        .concat(updatedProjectLabels);
-    });
-  }, [currentProject]);
+  const addQuickNote = useCallback(
+    async (content: string) => {
+      if (!currentProject) return;
+
+      const res = await fetch('/api/notes', {
+        method: 'POST',
+        headers: userHeaders(),
+        body: JSON.stringify({
+          content,
+          projectId: currentProject.id,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to create note');
+
+      setQuickNotes((prev) => [data.note, ...prev]);
+    },
+    [currentProject, userHeaders]
+  );
+
+  const updateQuickNote = useCallback(
+    async (noteId: number, content: string) => {
+      const res = await fetch(`/api/notes/${noteId}`, {
+        method: 'PATCH',
+        headers: userHeaders(),
+        body: JSON.stringify({ content }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to update note');
+
+      const updatedNote: QuickNote = data.note;
+      setQuickNotes((prev) =>
+        prev.map((note) => (note.id === noteId ? updatedNote : note))
+      );
+    },
+    [userHeaders]
+  );
+
+  const deleteQuickNote = useCallback(
+    async (noteId: number) => {
+      const res = await fetch(`/api/notes/${noteId}`, {
+        method: 'DELETE',
+        headers: authHeaders(),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to delete note');
+
+      setQuickNotes((prev) => prev.filter((note) => note.id !== noteId));
+    },
+    [authHeaders]
+  );
+
+  useEffect(() => {
+    refreshProjects().catch(console.error);
+  }, [refreshProjects]);
+
+  useEffect(() => {
+    refreshBoard().catch(console.error);
+  }, [currentProject?.id, refreshBoard]);
+
+  const value = useMemo(
+    () => ({
+      projects,
+      currentProject,
+      labels,
+      tasks,
+      quickNotes,
+      setCurrentProject,
+      refreshProjects,
+      refreshBoard,
+      createProject,
+      renameProject,
+      deleteProject,
+      addLabel,
+      updateLabel,
+      deleteLabel,
+      addTask,
+      updateTask,
+      moveTask,
+      deleteTask,
+      addQuickNote,
+      updateQuickNote,
+      deleteQuickNote,
+    }),
+    [
+      projects,
+      currentProject,
+      labels,
+      tasks,
+      quickNotes,
+      refreshProjects,
+      refreshBoard,
+      createProject,
+      renameProject,
+      deleteProject,
+      addLabel,
+      updateLabel,
+      deleteLabel,
+      addTask,
+      updateTask,
+      moveTask,
+      deleteTask,
+      addQuickNote,
+      updateQuickNote,
+      deleteQuickNote,
+    ]
+  );
 
   return (
-    <ProjectContext.Provider
-      value={{
-        projects: userProjects,
-        currentProject,
-        quickNotes: projectQuickNotes,
-        labels: projectLabels,
-        tasks: projectTasks,
-        setCurrentProject,
-        createProject,
-        deleteProject,
-        renameProject,
-        addQuickNote,
-        updateQuickNote,
-        deleteQuickNote,
-        addLabel,
-        updateLabel,
-        deleteLabel,
-        addTask,
-        updateTask,
-        deleteTask,
-        moveTask,
-        reorderLabels,
-      }}
-    >
+    <ProjectContext.Provider value={value}>
       {children}
     </ProjectContext.Provider>
   );
@@ -289,8 +449,6 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 
 export function useProject() {
   const context = useContext(ProjectContext);
-  if (context === undefined) {
-    throw new Error('useProject must be used within a ProjectProvider');
-  }
+  if (!context) throw new Error('useProject must be used within a ProjectProvider');
   return context;
 }

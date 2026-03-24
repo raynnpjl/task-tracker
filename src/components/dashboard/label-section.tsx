@@ -22,8 +22,8 @@ interface LabelSectionProps {
   tasks: Task[];
   onDragStart: (e: React.DragEvent, task: Task) => void;
   onDragOver: (e: React.DragEvent) => void;
-  onDrop: (e: React.DragEvent, labelId: string) => void;
-  draggingTaskId: string | null;
+  onDrop: (e: React.DragEvent, labelId: number) => void | Promise<void>;
+  draggingTaskId: number | null;
 }
 
 const colorOptions: LabelColor[] = ['blue', 'green', 'orange', 'red', 'purple', 'yellow', 'pink', 'gray'];
@@ -43,7 +43,7 @@ export function LabelSection({
   const [editName, setEditName] = useState(label.name);
   const [isColorMenuOpen, setIsColorMenuOpen] = useState(false);
 
-  const handleAddTask = () => {
+  const handleAddTask = async () => {
     if (newTaskContent.trim()) {
       addTask(newTaskContent.trim(), label.id);
       setNewTaskContent('');
@@ -51,19 +51,19 @@ export function LabelSection({
     }
   };
 
-  const handleUpdateLabel = () => {
+  const handleUpdateLabel = async () => {
     if (editName.trim()) {
       updateLabel(label.id, editName.trim(), label.color as LabelColor);
     }
     setIsEditing(false);
   };
 
-  const handleColorChange = (color: LabelColor) => {
+  const handleColorChange = async (color: LabelColor) => {
     updateLabel(label.id, label.name, color);
     setIsColorMenuOpen(false);
   };
 
-  const sortedTasks = [...tasks].sort((a, b) => a.order - b.order);
+  const sortedTasks = [...tasks].sort((a, b) => a.position - b.position);
 
   return (
     <div
@@ -108,7 +108,7 @@ export function LabelSection({
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7 text-muted-foreground hover:text-foreground"
+            className="h-7 w-7 text-muted-foreground hover:text-foreground cursor-pointer"
             onClick={() => setIsAddingTask(true)}
           >
             <Plus className="w-4 h-4" />
@@ -118,7 +118,7 @@ export function LabelSection({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                className="h-7 w-7 text-muted-foreground hover:text-foreground cursor-pointer"
               >
                 <MoreHorizontal className="w-4 h-4" />
               </Button>
@@ -150,7 +150,7 @@ export function LabelSection({
               </DropdownMenu>
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                onClick={() => deleteLabel(label.id)}
+                onClick={async () => await deleteLabel(label.id)}
                 className="text-destructive focus:text-destructive"
               >
                 <Trash2 className="w-4 h-4 mr-2" />
@@ -181,7 +181,7 @@ export function LabelSection({
               className="mb-2 bg-secondary border-border text-sm"
             />
             <div className="flex gap-2">
-              <Button size="sm" onClick={handleAddTask} className="flex-1">
+              <Button size="sm" onClick={handleAddTask} className="flex-1 cursor-pointer">
                 Add Task
               </Button>
               <Button
@@ -191,6 +191,7 @@ export function LabelSection({
                   setIsAddingTask(false);
                   setNewTaskContent('');
                 }}
+                className="cursor-pointer"
               >
                 Cancel
               </Button>
@@ -215,7 +216,7 @@ export function LabelSection({
               variant="link"
               size="sm"
               onClick={() => setIsAddingTask(true)}
-              className="text-primary text-xs"
+              className="text-primary text-xs cursor-pointer"
             >
               Add a task
             </Button>

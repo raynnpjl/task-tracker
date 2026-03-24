@@ -17,11 +17,11 @@ interface TaskCardProps {
 export function TaskCard({ task, isDragging, onDragStart }: TaskCardProps) {
   const { updateTask, deleteTask } = useProject();
   const [isEditing, setIsEditing] = useState(false);
-  const [editContent, setEditContent] = useState(task.content);
+  const [editTitle, setEditTitle] = useState(task.title);
 
-  const handleUpdate = () => {
-    if (editContent.trim()) {
-      updateTask(task.id, editContent.trim());
+  const handleUpdate = async () => {
+    if (editTitle.trim()) {
+      await updateTask(task.id, { title: editTitle.trim() });
     }
     setIsEditing(false);
   };
@@ -37,20 +37,20 @@ export function TaskCard({ task, isDragging, onDragStart }: TaskCardProps) {
       )}
     >
       <GripVertical className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-      
+
       {isEditing ? (
         <Input
           autoFocus
-          value={editContent}
-          onChange={(e) => setEditContent(e.target.value)}
+          value={editTitle}
+          onChange={(e) => setEditTitle(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') handleUpdate();
+            if (e.key === 'Enter') void handleUpdate();
             if (e.key === 'Escape') {
               setIsEditing(false);
-              setEditContent(task.content);
+              setEditTitle(task.title);
             }
           }}
-          onBlur={handleUpdate}
+          onBlur={() => void handleUpdate()}
           className="flex-1 h-7 text-sm bg-secondary border-border"
         />
       ) : (
@@ -59,16 +59,13 @@ export function TaskCard({ task, isDragging, onDragStart }: TaskCardProps) {
             className="flex-1 text-sm text-foreground cursor-pointer break-words"
             onClick={() => setIsEditing(true)}
           >
-            {task.content}
+            {task.title}
           </p>
           <Button
             variant="ghost"
             size="icon"
             className="h-6 w-6 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive flex-shrink-0"
-            onClick={(e) => {
-              e.stopPropagation();
-              deleteTask(task.id);
-            }}
+            onClick={() => void deleteTask(task.id)}
           >
             <X className="w-3 h-3" />
           </Button>

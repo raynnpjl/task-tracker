@@ -23,11 +23,10 @@ import {
   Trash2,
   FolderKanban,
   ChevronLeft,
+  ChevronRight,
   User,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-const PROJECT_ICONS = ['📁', '📊', '🎯', '💡', '🚀', '📝', '⭐', '🔥', '💼', '🎨'];
 
 interface SidebarProps {
   collapsed: boolean;
@@ -48,7 +47,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const [isCreating, setIsCreating] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+  const [editingProjectId, setEditingProjectId] = useState<number | null>(null);
   const [editingName, setEditingName] = useState('');
 
   const handleLogout = () => {
@@ -56,18 +55,17 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     router.push('/');
   };
 
-  const handleCreateProject = () => {
+  const handleCreateProject = async () => {
     if (newProjectName.trim()) {
-      const randomIcon = PROJECT_ICONS[Math.floor(Math.random() * PROJECT_ICONS.length)];
-      createProject(newProjectName.trim(), randomIcon);
+      await createProject(newProjectName.trim());
       setNewProjectName('');
       setIsCreating(false);
     }
   };
 
-  const handleRenameProject = (projectId: string) => {
+  const handleRenameProject = async (projectId: number) => {
     if (editingName.trim()) {
-      renameProject(projectId, editingName.trim());
+      await renameProject(projectId, editingName.trim());
       setEditingProjectId(null);
       setEditingName('');
     }
@@ -97,12 +95,13 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           variant="ghost"
           size="icon"
           onClick={onToggle}
-          className={cn(
-            'text-sidebar-foreground hover:bg-sidebar-accent',
-            collapsed && 'hidden'
-          )}
+          className="cursor-pointer text-sidebar-foreground hover:bg-sidebar-accent"
         >
-          <ChevronLeft className="w-4 h-4" />
+          {collapsed ? (
+            <ChevronRight className="w-4 h-4" />
+          ) : (
+            <ChevronLeft className="w-4 h-4" />
+          )}
         </Button>
       </div>
 
@@ -131,7 +130,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             <Button
               variant="ghost"
               size="icon"
-              className="h-6 w-6 text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent"
+              className="h-6 w-6 cursor-pointer text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent"
               onClick={() => setIsCreating(true)}
             >
               <Plus className="w-4 h-4" />
@@ -143,14 +142,16 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           <Button
             variant="ghost"
             size="icon"
-            className="w-full mb-2 text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent"
-            onClick={() => onToggle()}
+            className="w-full mb-2 cursor-pointer text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent"
+            onClick={() => {
+              onToggle();
+              setIsCreating(true);
+            }}
           >
             <Plus className="w-4 h-4" />
           </Button>
         )}
 
-        {/* Create project form */}
         {isCreating && !collapsed && (
           <div className="p-2 mb-2 rounded-lg bg-sidebar-accent">
             <Input
@@ -168,7 +169,11 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
               className="mb-2 bg-sidebar border-sidebar-border text-sidebar-foreground"
             />
             <div className="flex gap-2">
-              <Button size="sm" onClick={handleCreateProject} className="flex-1">
+              <Button 
+                size="sm" 
+                onClick={handleCreateProject} 
+                className="flex-1 cursor-pointer"
+              >
                 Create
               </Button>
               <Button
@@ -178,7 +183,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                   setIsCreating(false);
                   setNewProjectName('');
                 }}
-                className="text-sidebar-foreground"
+                className="text-sidebar-foreground cursor-pointer"
               >
                 Cancel
               </Button>
@@ -196,7 +201,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 variant="link"
                 size="sm"
                 onClick={() => setIsCreating(true)}
-                className="text-primary"
+                className="text-primary cursor-pointer"
               >
                 Create your first project
               </Button>
@@ -214,7 +219,6 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
               )}
               onClick={() => setCurrentProject(project)}
             >
-              <span className="text-base flex-shrink-0">{project.icon}</span>
               {!collapsed && (
                 <>
                   {editingProjectId === project.id ? (
@@ -241,7 +245,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-6 w-6 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent"
+                        className="h-6 w-6 opacity-0 group-hover:opacity-100 cursor-pointer text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent"
                       >
                         <MoreHorizontal className="w-4 h-4" />
                       </Button>
@@ -253,17 +257,18 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                           setEditingProjectId(project.id);
                           setEditingName(project.name);
                         }}
+                        className="cursor-pointer"
                       >
                         <Pencil className="w-4 h-4 mr-2" />
                         Rename
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
-                        onClick={(e) => {
+                        onClick={async (e) => {
                           e.stopPropagation();
                           deleteProject(project.id);
                         }}
-                        className="text-destructive focus:text-destructive"
+                        className="text-destructive focus:text-destructive cursor-pointer"
                       >
                         <Trash2 className="w-4 h-4 mr-2" />
                         Delete
@@ -284,7 +289,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             <Button
               variant="ghost"
               className={cn(
-                'w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent',
+                'w-full cursor-pointer justify-start text-sidebar-foreground hover:bg-sidebar-accent',
                 collapsed && 'justify-center px-0'
               )}
             >

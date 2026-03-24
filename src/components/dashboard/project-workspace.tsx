@@ -26,9 +26,9 @@ export function ProjectWorkspace() {
   const [newLabelColor, setNewLabelColor] = useState<LabelColor>('blue');
   const [draggingTask, setDraggingTask] = useState<Task | null>(null);
 
-  const handleAddLabel = () => {
+  const handleAddLabel = async () => {
     if (newLabelName.trim()) {
-      addLabel(newLabelName.trim(), newLabelColor);
+      await addLabel(newLabelName.trim(), newLabelColor);
       setNewLabelName('');
       setNewLabelColor('blue');
       setIsAddingLabel(false);
@@ -38,7 +38,7 @@ export function ProjectWorkspace() {
   const handleDragStart = (e: React.DragEvent, task: Task) => {
     setDraggingTask(task);
     e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', task.id);
+    e.dataTransfer.setData('text/plain', String(task.id));
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -46,12 +46,15 @@ export function ProjectWorkspace() {
     e.dataTransfer.dropEffect = 'move';
   };
 
-  const handleDrop = (e: React.DragEvent, labelId: string) => {
+
+  const handleDrop = async (e: React.DragEvent, labelId: number) => {
     e.preventDefault();
+
     if (draggingTask && draggingTask.labelId !== labelId) {
       const labelTasks = tasks.filter((t) => t.labelId === labelId);
-      moveTask(draggingTask.id, labelId, labelTasks.length);
+      await moveTask(draggingTask.id, labelId, labelTasks.length);
     }
+
     setDraggingTask(null);
   };
 
@@ -61,7 +64,7 @@ export function ProjectWorkspace() {
 
   if (!currentProject) {
     return (
-      <div className="flex-1 flex items-center justify-center p-8">
+      <div className="flex-1 flex items-center justify-center p-8 h-full">
         <div className="text-center max-w-md">
           <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
             <Tags className="w-8 h-8 text-primary" />
@@ -80,7 +83,6 @@ export function ProjectWorkspace() {
       {/* Project header */}
       <div className="flex-shrink-0 p-6 border-b border-border">
         <div className="flex items-center gap-3">
-          <span className="text-3xl">{currentProject.icon}</span>
           <div>
             <h1 className="text-2xl font-bold text-foreground">{currentProject.name}</h1>
             <p className="text-sm text-muted-foreground">
@@ -109,7 +111,7 @@ export function ProjectWorkspace() {
               variant="outline"
               size="sm"
               onClick={() => setIsAddingLabel(true)}
-              className="gap-2"
+              className="gap-2 cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               Add Section
@@ -174,7 +176,6 @@ export function ProjectWorkspace() {
         )}
       </div>
 
-      {/* Labels kanban */}
       <div className="flex-1 overflow-x-auto overflow-y-hidden px-6 pb-6">
         <div className="flex gap-4 h-full">
           {labels.map((label) => (
@@ -199,7 +200,10 @@ export function ProjectWorkspace() {
                 <p className="text-sm text-muted-foreground mb-4">
                   Create sections like To-Do, In Progress, or Done to organize your tasks.
                 </p>
-                <Button onClick={() => setIsAddingLabel(true)}>
+                <Button 
+                  onClick={() => setIsAddingLabel(true)}
+                  className="cursor-pointer"
+                >
                   <Plus className="w-4 h-4 mr-2" />
                   Create First Section
                 </Button>

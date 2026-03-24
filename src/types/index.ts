@@ -5,46 +5,54 @@ export interface User {
 }
 
 export interface QuickNote {
-  id: string;
+  id: number;
+  title: string;
   content: string;
-  createdAt: Date;
-  projectId: string;
+  pinned: boolean;
+  projectId: number | null;
+  userId: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Label {
-  id: string;
+  id: number;
   name: string;
-  color: string;
-  projectId: string;
-  order: number;
+  color: LabelColor;
+  projectId: number;
+  userId: number;
+  createdAt?: string;
 }
 
 export interface Task {
-  id: string;
+  id: number;
+  title: string;
+  done: boolean;
   content: string;
-  labelId: string;
-  projectId: string;
-  createdAt: Date;
-  order: number;
+  position: number;
+  projectId: number;
+  labelId: number;
+  userId: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Project {
-  id: string;
+  id: number;
   name: string;
-  icon: string;
-  createdAt: Date;
-  userId: string;
+  userId: number;
+  createdAt?: string;
 }
 
-export type LabelColor = 
-  | 'blue'
-  | 'green'
-  | 'orange'
-  | 'red'
-  | 'purple'
-  | 'yellow'
-  | 'pink'
-  | 'gray';
+export type LabelColor =
+  | "blue"
+  | "green"
+  | "orange"
+  | "red"
+  | "purple"
+  | "yellow"
+  | "pink"
+  | "gray";
 
 export const LABEL_COLORS: Record<LabelColor, string> = {
   blue: 'bg-blue-500/20 text-blue-400 border-blue-500/30',

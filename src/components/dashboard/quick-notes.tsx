@@ -11,20 +11,20 @@ export function QuickNotes() {
   const { quickNotes, addQuickNote, updateQuickNote, deleteQuickNote } = useProject();
   const [isAdding, setIsAdding] = useState(false);
   const [newNote, setNewNote] = useState('');
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [editingContent, setEditingContent] = useState('');
 
-  const handleAddNote = () => {
+  const handleAddNote = async () => {
     if (newNote.trim()) {
-      addQuickNote(newNote.trim());
+      await addQuickNote(newNote.trim());
       setNewNote('');
       setIsAdding(false);
     }
   };
 
-  const handleUpdateNote = (noteId: string) => {
+  const handleUpdateNote = async (noteId: number) => {
     if (editingContent.trim()) {
-      updateQuickNote(noteId, editingContent.trim());
+      await updateQuickNote(noteId, editingContent.trim());
     }
     setEditingId(null);
     setEditingContent('');
@@ -41,14 +41,13 @@ export function QuickNotes() {
         <Button
           variant="ghost"
           size="icon"
-          className="h-7 w-7 text-muted-foreground hover:text-foreground"
+          className="h-7 w-7 text-muted-foreground hover:text-foreground cursor-pointer"
           onClick={() => setIsAdding(true)}
         >
           <Plus className="w-4 h-4" />
         </Button>
       </div>
 
-      {/* Add new note */}
       {isAdding && (
         <div className="mb-3 flex gap-2">
           <Input
@@ -57,7 +56,7 @@ export function QuickNotes() {
             value={newNote}
             onChange={(e) => setNewNote(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') handleAddNote();
+              if (e.key === 'Enter') void handleAddNote();
               if (e.key === 'Escape') {
                 setIsAdding(false);
                 setNewNote('');
@@ -65,7 +64,7 @@ export function QuickNotes() {
             }}
             className="flex-1 bg-secondary border-border"
           />
-          <Button size="sm" onClick={handleAddNote}>
+          <Button size="sm" onClick={() => void handleAddNote()}>
             Add
           </Button>
           <Button
@@ -81,7 +80,6 @@ export function QuickNotes() {
         </div>
       )}
 
-      {/* Notes list */}
       <div className="space-y-2 max-h-40 overflow-y-auto">
         {quickNotes.length === 0 && !isAdding && (
           <p className="text-sm text-muted-foreground text-center py-4">
@@ -102,13 +100,13 @@ export function QuickNotes() {
                 value={editingContent}
                 onChange={(e) => setEditingContent(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleUpdateNote(note.id);
+                  if (e.key === 'Enter') void handleUpdateNote(note.id);
                   if (e.key === 'Escape') {
                     setEditingId(null);
                     setEditingContent('');
                   }
                 }}
-                onBlur={() => handleUpdateNote(note.id)}
+                onBlur={() => void handleUpdateNote(note.id)}
                 className="flex-1 h-7 bg-card border-border text-sm"
               />
             ) : (
@@ -126,7 +124,7 @@ export function QuickNotes() {
                   variant="ghost"
                   size="icon"
                   className="h-6 w-6 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
-                  onClick={() => deleteQuickNote(note.id)}
+                  onClick={() => void deleteQuickNote(note.id)}
                 >
                   <X className="w-3 h-3" />
                 </Button>

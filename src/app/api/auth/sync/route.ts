@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { eq } from 'drizzle-orm';
-import { db } from '@/db/db';
+import { db } from '@/db/index';
 import { users } from '@/../drizzle/schema';
 import { requireUser } from '@/lib/auth/require-user';
 
