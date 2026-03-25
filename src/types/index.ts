@@ -11,6 +11,7 @@ export interface QuickNote {
   pinned: boolean;
   projectId: number | null;
   userId: number;
+  done: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -27,7 +28,6 @@ export interface Label {
 export interface Task {
   id: number;
   title: string;
-  done: boolean;
   content: string;
   position: number;
   projectId: number;

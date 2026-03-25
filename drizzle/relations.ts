@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm/relations";
-import { users, projects, labels, notes, tasks } from "./schema";
+import { users, projects, labels, tasks, notes } from "./schema";
 
 export const projectsRelations = relations(projects, ({one, many}) => ({
 	user: one(users, {
@@ -7,15 +7,15 @@ export const projectsRelations = relations(projects, ({one, many}) => ({
 		references: [users.id]
 	}),
 	labels: many(labels),
-	notes: many(notes),
 	tasks: many(tasks),
+	notes: many(notes),
 }));
 
 export const usersRelations = relations(users, ({many}) => ({
 	projects: many(projects),
 	labels: many(labels),
-	notes: many(notes),
 	tasks: many(tasks),
+	notes: many(notes),
 }));
 
 export const labelsRelations = relations(labels, ({one, many}) => ({
@@ -30,17 +30,6 @@ export const labelsRelations = relations(labels, ({one, many}) => ({
 	tasks: many(tasks),
 }));
 
-export const notesRelations = relations(notes, ({one}) => ({
-	project: one(projects, {
-		fields: [notes.projectId],
-		references: [projects.id]
-	}),
-	user: one(users, {
-		fields: [notes.userId],
-		references: [users.id]
-	}),
-}));
-
 export const tasksRelations = relations(tasks, ({one}) => ({
 	project: one(projects, {
 		fields: [tasks.projectId],
@@ -52,6 +41,17 @@ export const tasksRelations = relations(tasks, ({one}) => ({
 	}),
 	user: one(users, {
 		fields: [tasks.userId],
+		references: [users.id]
+	}),
+}));
+
+export const notesRelations = relations(notes, ({one}) => ({
+	project: one(projects, {
+		fields: [notes.projectId],
+		references: [projects.id]
+	}),
+	user: one(users, {
+		fields: [notes.userId],
 		references: [users.id]
 	}),
 }));

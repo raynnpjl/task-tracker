@@ -9,24 +9,53 @@ import { cn } from '@/lib/utils';
 
 export function QuickNotes() {
   const { quickNotes, addQuickNote, updateQuickNote, deleteQuickNote } = useProject();
+
   const [isAdding, setIsAdding] = useState(false);
-  const [newNote, setNewNote] = useState('');
+  const [newTitle, setNewTitle] = useState('');
+  const [newContent, setNewContent] = useState('');
+
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingTitle, setEditingTitle] = useState('');
   const [editingContent, setEditingContent] = useState('');
 
   const handleAddNote = async () => {
-    if (newNote.trim()) {
-      await addQuickNote(newNote.trim());
-      setNewNote('');
-      setIsAdding(false);
-    }
+    if (!newTitle.trim()) return;
+
+    await addQuickNote({
+      title: newTitle.trim(),
+      content: newContent.trim(),
+      done: false,
+    });
+
+    setNewTitle('');
+    setNewContent('');
+    setIsAdding(false);
   };
 
   const handleUpdateNote = async (noteId: number) => {
-    if (editingContent.trim()) {
-      await updateQuickNote(noteId, editingContent.trim());
-    }
+    if (!editingTitle.trim()) return;
+
+    await updateQuickNote(noteId, {
+      title: editingTitle.trim(),
+      content: editingContent.trim(),
+    });
+
     setEditingId(null);
+    setEditingTitle('');
+    setEditingContent('');
+  };
+
+  const startEditing = (
+    note: { id: number; title: string; content: string }
+  ) => {
+    setEditingId(note.id);
+    setEditingTitle(note.title);
+    setEditingContent(note.content);
+  };
+
+  const cancelEditing = () => {
+    setEditingId(null);
+    setEditingTitle('');
     setEditingContent('');
   };
 
@@ -38,6 +67,7 @@ export function QuickNotes() {
           <h3 className="font-medium text-foreground">Quick Notes</h3>
           <span className="text-xs text-muted-foreground">({quickNotes.length})</span>
         </div>
+
         <Button
           variant="ghost"
           size="icon"
@@ -49,38 +79,48 @@ export function QuickNotes() {
       </div>
 
       {isAdding && (
-        <div className="mb-3 flex gap-2">
+        <div className="mb-4 rounded-lg border border-border bg-secondary/40 p-3 space-y-2">
           <Input
             autoFocus
-            placeholder="Write a quick note..."
-            value={newNote}
-            onChange={(e) => setNewNote(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') void handleAddNote();
-              if (e.key === 'Escape') {
-                setIsAdding(false);
-                setNewNote('');
-              }
-            }}
-            className="flex-1 bg-secondary border-border"
+            placeholder="Note title..."
+            value={newTitle}
+            onChange={(e) => setNewTitle(e.target.value)}
+            className="bg-card border-border"
           />
-          <Button size="sm" onClick={() => void handleAddNote()}>
-            Add
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => {
-              setIsAdding(false);
-              setNewNote('');
-            }}
-          >
-            <X className="w-4 h-4" />
-          </Button>
+
+          <textarea
+            placeholder="Write your note..."
+            value={newContent}
+            onChange={(e) => setNewContent(e.target.value)}
+            className="w-full min-h-[100px] rounded-md border border-border bg-card px-3 py-2 text-sm outline-none resize-none"
+          />
+
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              className="cursor-pointer"
+              onClick={() => void handleAddNote()}
+            >
+              Add
+            </Button>
+
+            <Button
+              size="sm"
+              variant="ghost"
+              className="cursor-pointer"
+              onClick={() => {
+                setIsAdding(false);
+                setNewTitle('');
+                setNewContent('');
+              }}
+            >
+              Cancel
+            </Button>
+          </div>
         </div>
       )}
 
-      <div className="space-y-2 max-h-40 overflow-y-auto">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-h-80 overflow-y-auto">
         {quickNotes.length === 0 && !isAdding && (
           <p className="text-sm text-muted-foreground text-center py-4">
             No quick notes yet. Add one to capture your thoughts.
@@ -90,45 +130,84 @@ export function QuickNotes() {
         {quickNotes.map((note) => (
           <div
             key={note.id}
-            className={cn(
-              'group flex items-start gap-2 p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors'
-            )}
+            className="group rounded-xl border border-border bg-secondary/40 p-3 hover:bg-secondary/60 transition-colors"
           >
             {editingId === note.id ? (
-              <Input
-                autoFocus
-                value={editingContent}
-                onChange={(e) => setEditingContent(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') void handleUpdateNote(note.id);
-                  if (e.key === 'Escape') {
-                    setEditingId(null);
-                    setEditingContent('');
-                  }
-                }}
-                onBlur={() => void handleUpdateNote(note.id)}
-                className="flex-1 h-7 bg-card border-border text-sm"
-              />
+              <div className="space-y-2">
+                <Input
+                  autoFocus
+                  value={editingTitle}
+                  onChange={(e) => setEditingTitle(e.target.value)}
+                  placeholder="Note title..."
+                  className="bg-card border-border"
+                />
+
+                <textarea
+                  value={editingContent}
+                  onChange={(e) => setEditingContent(e.target.value)}
+                  placeholder="Write your note..."
+                  className="w-full min-h-[100px] rounded-md border border-border bg-card px-3 py-2 text-sm outline-none resize-none"
+                />
+
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    className="cursor-pointer"
+                    onClick={() => void handleUpdateNote(note.id)}
+                  >
+                    Save
+                  </Button>
+
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="cursor-pointer"
+                    onClick={cancelEditing}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
             ) : (
-              <>
-                <p
-                  className="flex-1 text-sm text-foreground cursor-pointer"
-                  onClick={() => {
-                    setEditingId(note.id);
-                    setEditingContent(note.content);
-                  }}
+              <div className="flex gap-3">
+                <input
+                  type="checkbox"
+                  checked={note.done}
+                  onChange={() =>
+                    void updateQuickNote(note.id, { done: !note.done })
+                  }
+                  className="mt-1 h-4 w-4 cursor-pointer rounded border-border"
+                />
+
+                <div
+                  className="flex-1 min-w-0 cursor-pointer"
+                  onClick={() => startEditing(note)}
                 >
-                  {note.content}
-                </p>
+                  <h4
+                    className={cn(
+                      'text-sm font-medium text-foreground break-words',
+                      note.done && 'line-through text-muted-foreground'
+                    )}
+                  >
+                    {note.title}
+                  </h4>
+
+                  {note.content && (
+                    <p className="mt-1 text-sm text-muted-foreground whitespace-pre-wrap break-words">
+                      {note.content}
+                    </p>
+                  )}
+                </div>
+
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-6 w-6 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
+                  className="h-7 w-7 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive cursor-pointer flex-shrink-0"
                   onClick={() => void deleteQuickNote(note.id)}
                 >
-                  <X className="w-3 h-3" />
+                  <X className="w-4 h-4" />
                 </Button>
-              </>
+              </div>
             )}
           </div>
         ))}

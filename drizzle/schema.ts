@@ -50,39 +50,16 @@ export const labels = pgTable("labels", {
 		}).onDelete("cascade"),
 ]);
 
-export const notes = pgTable("notes", {
-	id: serial().primaryKey().notNull(),
-	title: text().notNull(),
-	content: text().default('').notNull(),
-	pinned: boolean().default(false).notNull(),
-	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
-	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow().notNull(),
-	projectId: integer("project_id"),
-	userId: integer("user_id").notNull(),
-}, (table) => [
-	foreignKey({
-			columns: [table.projectId],
-			foreignColumns: [projects.id],
-			name: "notes_project_fk"
-		}),
-	foreignKey({
-			columns: [table.userId],
-			foreignColumns: [users.id],
-			name: "notes_user_fk"
-		}),
-]);
-
 export const tasks = pgTable("tasks", {
 	id: serial().primaryKey().notNull(),
 	title: text().notNull(),
-	done: boolean().default(false).notNull(),
 	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
 	position: integer().default(0).notNull(),
 	projectId: integer("project_id").notNull(),
 	labelId: integer("label_id").notNull(),
 	userId: integer("user_id").notNull(),
 	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow().notNull(),
-	content: text(),
+	content: text().default('').notNull(),
 }, (table) => [
 	foreignKey({
 			columns: [table.projectId],
@@ -99,4 +76,27 @@ export const tasks = pgTable("tasks", {
 			foreignColumns: [users.id],
 			name: "tasks_user_fk"
 		}).onDelete("cascade"),
+]);
+
+export const notes = pgTable("notes", {
+	id: serial().primaryKey().notNull(),
+	title: text().notNull(),
+	content: text().default('').notNull(),
+	pinned: boolean().default(false).notNull(),
+	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow().notNull(),
+	projectId: integer("project_id"),
+	userId: integer("user_id").notNull(),
+	done: boolean().default(false).notNull(),
+}, (table) => [
+	foreignKey({
+			columns: [table.projectId],
+			foreignColumns: [projects.id],
+			name: "notes_project_fk"
+		}),
+	foreignKey({
+			columns: [table.userId],
+			foreignColumns: [users.id],
+			name: "notes_user_fk"
+		}),
 ]);

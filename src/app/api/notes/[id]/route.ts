@@ -37,25 +37,37 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const content = body?.content?.trim();
 
-    if (!content) {
-      return NextResponse.json({ error: "Note content is required" }, { status: 400 });
+    const nextTitle =
+      typeof body.title === "string" ? body.title.trim() : undefined;
+    const nextContent =
+      typeof body.content === "string" ? body.content.trim() : undefined;
+    const nextDone =
+      typeof body.done === "boolean" ? body.done : undefined;
+
+    const [existingNote] = await db
+      .select()
+      .from(notes)
+      .where(and(eq(notes.id, noteId), eq(notes.userId, dbUser.id)));
+
+    if (!existingNote) {
+      return NextResponse.json({ error: "Note not found" }, { status: 404 });
+    }
+
+    if (nextTitle !== undefined && !nextTitle) {
+      return NextResponse.json({ error: "Note title is required" }, { status: 400 });
     }
 
     const [updatedNote] = await db
       .update(notes)
       .set({
-        title: content.slice(0, 50),
-        content,
+        title: nextTitle !== undefined ? nextTitle : existingNote.title,
+        content: nextContent !== undefined ? nextContent : existingNote.content,
+        done: nextDone !== undefined ? nextDone : existingNote.done,
         updatedAt: new Date().toISOString(),
       })
       .where(and(eq(notes.id, noteId), eq(notes.userId, dbUser.id)))
       .returning();
-
-    if (!updatedNote) {
-      return NextResponse.json({ error: "Note not found" }, { status: 404 });
-    }
 
     return NextResponse.json({ note: updatedNote });
   } catch (error) {

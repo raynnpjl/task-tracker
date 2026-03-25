@@ -38,7 +38,7 @@ export async function PATCH(
 
     const body = await request.json();
     const nextTitle = body.title;
-    const nextDone = body.done;
+    const nextContent = body.content;
     const nextLabelId =
       body.labelId !== undefined ? Number(body.labelId) : undefined;
     const nextPosition =
@@ -90,7 +90,7 @@ export async function PATCH(
       .update(tasks)
       .set({
         title: nextTitle ?? existingTask.title,
-        done: nextDone ?? existingTask.done,
+        content: nextContent !== undefined ? nextContent : existingTask.content,
         labelId: nextLabelId ?? existingTask.labelId,
         position: nextPosition ?? existingTask.position,
         updatedAt: new Date().toISOString(),

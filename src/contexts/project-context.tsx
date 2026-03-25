@@ -26,15 +26,22 @@ interface ProjectContextType {
   addLabel: (name: string, color: LabelColor) => Promise<void>;
   updateLabel: (labelId: number, name: string, color: LabelColor) => Promise<void>;
   deleteLabel: (labelId: number) => Promise<void>;
-  addTask: (title: string, labelId: number) => Promise<void>;
+  addTask: (title: string, content: string, labelId: number) => Promise<void>;
   updateTask: (
     taskId: number,
-    updates: Partial<Pick<Task, 'title' | 'done'>>
+    updates: Partial<Pick<Task, 'title' | 'content'>>
   ) => Promise<void>;
   moveTask: (taskId: number, labelId: number, position: number) => Promise<void>;
   deleteTask: (taskId: number) => Promise<void>;
-  addQuickNote: (content: string) => Promise<void>;
-  updateQuickNote: (noteId: number, content: string) => Promise<void>;
+  addQuickNote: (note: {
+    title: string;
+    content: string;
+    done?: boolean;
+  }) => Promise<void>;
+  updateQuickNote: (
+    noteId: number,
+    updates: Partial<Pick<QuickNote, 'title' | 'content' | 'done'>>
+  ) => Promise<void>;
   deleteQuickNote: (noteId: number) => Promise<void>;
 }
 
@@ -245,7 +252,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   );
 
   const addTask = useCallback(
-    async (title: string, labelId: number) => {
+    async (title: string, content: string, labelId: number) => {
       if (!currentProject) return;
 
       const res = await fetch('/api/tasks', {
@@ -253,6 +260,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
         headers: userHeaders(),
         body: JSON.stringify({
           title,
+          content,
           projectId: currentProject.id,
           labelId,
         }),
@@ -267,18 +275,22 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   );
 
   const updateTask = useCallback(
-    async (taskId: number, updates: Partial<Pick<Task, 'title' | 'done'>>) => {
+    async (
+      taskId: number,
+      updates: Partial<Pick<Task, "title" | "content">>
+    ) => {
       const res = await fetch(`/api/tasks/${taskId}`, {
-        method: 'PATCH',
+        method: "PATCH",
         headers: userHeaders(),
         body: JSON.stringify(updates),
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to update task');
+      if (!res.ok) throw new Error(data.error || "Failed to update task");
 
-      const updated = data.task as Task;
-      setTasks((prev) => prev.map((t) => (t.id === taskId ? updated : t)));
+      setTasks((prev) =>
+        prev.map((task) => (task.id === taskId ? data.task : task))
+      );
     },
     [userHeaders]
   );
@@ -330,20 +342,22 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   );
 
   const addQuickNote = useCallback(
-    async (content: string) => {
+    async (note: { title: string; content: string; done?: boolean }) => {
       if (!currentProject) return;
 
       const res = await fetch('/api/notes', {
         method: 'POST',
         headers: userHeaders(),
         body: JSON.stringify({
-          content,
+          title: note.title,
+          content: note.content,
+          done: note.done ?? false,
           projectId: currentProject.id,
         }),
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to create note');
+      if (!res.ok) throw new Error(data.error || 'Failed to create quick note');
 
       setQuickNotes((prev) => [data.note, ...prev]);
     },
@@ -351,19 +365,21 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   );
 
   const updateQuickNote = useCallback(
-    async (noteId: number, content: string) => {
+    async (
+      noteId: number,
+      updates: Partial<Pick<QuickNote, 'title' | 'content' | 'done'>>
+    ) => {
       const res = await fetch(`/api/notes/${noteId}`, {
         method: 'PATCH',
         headers: userHeaders(),
-        body: JSON.stringify({ content }),
+        body: JSON.stringify(updates),
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to update note');
+      if (!res.ok) throw new Error(data.error || 'Failed to update quick note');
 
-      const updatedNote: QuickNote = data.note;
       setQuickNotes((prev) =>
-        prev.map((note) => (note.id === noteId ? updatedNote : note))
+        prev.map((note) => (note.id === noteId ? data.note : note))
       );
     },
     [userHeaders]

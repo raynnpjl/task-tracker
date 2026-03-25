@@ -26,7 +26,16 @@ interface LabelSectionProps {
   draggingTaskId: number | null;
 }
 
-const colorOptions: LabelColor[] = ['blue', 'green', 'orange', 'red', 'purple', 'yellow', 'pink', 'gray'];
+const colorOptions: LabelColor[] = [
+  'blue',
+  'green',
+  'orange',
+  'red',
+  'purple',
+  'yellow',
+  'pink',
+  'gray',
+];
 
 export function LabelSection({
   label,
@@ -37,29 +46,40 @@ export function LabelSection({
   draggingTaskId,
 }: LabelSectionProps) {
   const { addTask, updateLabel, deleteLabel } = useProject();
+
   const [isAddingTask, setIsAddingTask] = useState(false);
+  const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskContent, setNewTaskContent] = useState('');
+
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(label.name);
   const [isColorMenuOpen, setIsColorMenuOpen] = useState(false);
 
   const handleAddTask = async () => {
-    if (newTaskContent.trim()) {
-      addTask(newTaskContent.trim(), label.id);
-      setNewTaskContent('');
-      setIsAddingTask(false);
-    }
+    if (!newTaskTitle.trim()) return;
+
+    await addTask(newTaskTitle.trim(), newTaskContent.trim(), label.id);
+
+    setNewTaskTitle('');
+    setNewTaskContent('');
+    setIsAddingTask(false);
+  };
+
+  const handleCancelAddTask = () => {
+    setIsAddingTask(false);
+    setNewTaskTitle('');
+    setNewTaskContent('');
   };
 
   const handleUpdateLabel = async () => {
     if (editName.trim()) {
-      updateLabel(label.id, editName.trim(), label.color as LabelColor);
+      await updateLabel(label.id, editName.trim(), label.color as LabelColor);
     }
     setIsEditing(false);
   };
 
   const handleColorChange = async (color: LabelColor) => {
-    updateLabel(label.id, label.name, color);
+    await updateLabel(label.id, label.name, color);
     setIsColorMenuOpen(false);
   };
 
@@ -74,7 +94,6 @@ export function LabelSection({
       onDragOver={onDragOver}
       onDrop={(e) => onDrop(e, label.id)}
     >
-      {/* Header */}
       <div className="flex items-center justify-between p-3 border-b border-border">
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <div
@@ -89,19 +108,23 @@ export function LabelSection({
               value={editName}
               onChange={(e) => setEditName(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') handleUpdateLabel();
+                if (e.key === 'Enter') void handleUpdateLabel();
                 if (e.key === 'Escape') {
                   setIsEditing(false);
                   setEditName(label.name);
                 }
               }}
-              onBlur={handleUpdateLabel}
+              onBlur={() => void handleUpdateLabel()}
               className="h-6 text-sm bg-card border-border"
             />
           ) : (
-            <span className="font-medium text-sm text-foreground truncate">{label.name}</span>
+            <span className="font-medium text-sm text-foreground truncate">
+              {label.name}
+            </span>
           )}
-          <span className="text-xs text-muted-foreground flex-shrink-0">({tasks.length})</span>
+          <span className="text-xs text-muted-foreground flex-shrink-0">
+            ({tasks.length})
+          </span>
         </div>
 
         <div className="flex items-center gap-1">
@@ -113,6 +136,7 @@ export function LabelSection({
           >
             <Plus className="w-4 h-4" />
           </Button>
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -123,11 +147,13 @@ export function LabelSection({
                 <MoreHorizontal className="w-4 h-4" />
               </Button>
             </DropdownMenuTrigger>
+
             <DropdownMenuContent align="end" className="w-44">
               <DropdownMenuItem onClick={() => setIsEditing(true)}>
                 <Pencil className="w-4 h-4 mr-2" />
                 Rename
               </DropdownMenuItem>
+
               <DropdownMenu open={isColorMenuOpen} onOpenChange={setIsColorMenuOpen}>
                 <DropdownMenuTrigger asChild>
                   <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
@@ -135,20 +161,28 @@ export function LabelSection({
                     Change Color
                   </DropdownMenuItem>
                 </DropdownMenuTrigger>
+
                 <DropdownMenuContent side="right" className="w-36">
                   {colorOptions.map((color) => (
                     <DropdownMenuItem
                       key={color}
-                      onClick={() => handleColorChange(color)}
+                      onClick={() => void handleColorChange(color)}
                       className="flex items-center gap-2"
                     >
-                      <div className={cn('w-3 h-3 rounded-full', LABEL_COLORS[color].split(' ')[0])} />
+                      <div
+                        className={cn(
+                          'w-3 h-3 rounded-full',
+                          LABEL_COLORS[color].split(' ')[0]
+                        )}
+                      />
                       <span className="capitalize">{color}</span>
                     </DropdownMenuItem>
                   ))}
                 </DropdownMenuContent>
               </DropdownMenu>
+
               <DropdownMenuSeparator />
+
               <DropdownMenuItem
                 onClick={async () => await deleteLabel(label.id)}
                 className="text-destructive focus:text-destructive"
@@ -161,36 +195,36 @@ export function LabelSection({
         </div>
       </div>
 
-      {/* Tasks */}
       <div className="flex-1 p-3 space-y-2 overflow-y-auto">
-        {/* Add task form */}
         {isAddingTask && (
-          <div className="p-2 rounded-lg bg-card border border-border">
+          <div className="p-3 rounded-lg bg-card border border-border space-y-2">
             <Input
               autoFocus
-              placeholder="Task description..."
+              placeholder="Task title..."
+              value={newTaskTitle}
+              onChange={(e) => setNewTaskTitle(e.target.value)}
+              className="bg-secondary border-border text-sm"
+            />
+
+            <textarea
+              placeholder="Task content..."
               value={newTaskContent}
               onChange={(e) => setNewTaskContent(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleAddTask();
-                if (e.key === 'Escape') {
-                  setIsAddingTask(false);
-                  setNewTaskContent('');
-                }
-              }}
-              className="mb-2 bg-secondary border-border text-sm"
+              className="w-full min-h-[100px] rounded-md border border-border bg-secondary px-3 py-2 text-sm outline-none resize-none"
             />
+
             <div className="flex gap-2">
-              <Button size="sm" onClick={handleAddTask} className="flex-1 cursor-pointer">
+              <Button
+                size="sm"
+                onClick={() => void handleAddTask()}
+                className="flex-1 cursor-pointer"
+              >
                 Add Task
               </Button>
               <Button
                 size="sm"
                 variant="ghost"
-                onClick={() => {
-                  setIsAddingTask(false);
-                  setNewTaskContent('');
-                }}
+                onClick={handleCancelAddTask}
                 className="cursor-pointer"
               >
                 Cancel
@@ -199,7 +233,6 @@ export function LabelSection({
           </div>
         )}
 
-        {/* Task list */}
         {sortedTasks.map((task) => (
           <TaskCard
             key={task.id}
